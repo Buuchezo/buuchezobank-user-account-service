@@ -13,5 +13,5 @@ import lombok.*;
 public class AuthResponse {
 
     private String token;
-    private UserDto userDto;
+    private UserDto user;
 }

@@ -26,6 +26,6 @@ public class AccountDto {
     private Currency currency;   // USD EUR
     private AccountType accountType; // SAVINGS CURRENT CHECKING
     private AccountStatus accountStatus; // ACTIVE INACTIVE CLOSE
-    private UserDto userDto;
+    private String ownerEmail;
     private LocalDateTime createdAt;
 }

@@ -1,48 +1,133 @@
 spring:
+  # ============================================================
+  # APPLICATION
+  # ============================================================
+
+  # Name used to identify this microservice
   application:
     name: user-account-service
 
+
+  # ============================================================
+  # DATABASE
+  # ============================================================
+
+  # PostgreSQL database connection
   datasource:
+    # PostgreSQL + host + port + database name
     url: jdbc:postgresql://localhost:5432/buuchezobank_users_account_db
+
+    # PostgreSQL username
     username: postgres
-    password: Kadinyah02+++
+
+    # Database password
+    # In production, use an environment variable instead
+    password: ${DB_PASSWORD}
+
+
+  # ============================================================
+  # JPA / HIBERNATE
+  # ============================================================
 
   jpa:
     hibernate:
+      # Automatically update database tables based on entities
       ddl-auto: update
 
-  # Kafka
+
+  # ============================================================
+  # KAFKA
+  # ============================================================
+
+  # Kafka producer configuration
   kafka:
+    # Address of the Kafka broker
     bootstrap-servers: localhost:9092
 
     producer:
+
+      # Convert Java String → Kafka message key
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+      # Convert Java object → JSON
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
       properties:
+
+        # Include Java type information in the JSON message
+        # This helps the Kafka consumer know what type of
+        # object was sent.
         spring.json.add.type: true
 
+
+# ============================================================
+# SERVER
+# ============================================================
+
+# Port used by the user-account-service
 server:
   port: 8080
 
-# Actuator
+
+# ============================================================
+# ACTUATOR
+# ============================================================
+
+# Spring Boot Actuator for monitoring and health checks
 management:
   endpoints:
     web:
+
+      # Expose all actuator endpoints
       exposure:
         include: "*"
 
-# Eureka
+
+# ============================================================
+# EUREKA
+# ============================================================
+
+# Eureka service discovery configuration
 eureka:
   client:
+
+    # Register this service with Eureka
     register-with-eureka: true
+
+    # Discover other services registered with Eureka
     fetch-registry: true
+
+    # Address of the Eureka server
     service-url:
       defaultZone: http://localhost:8761/eureka/
 
   instance:
+
+    # Register the service using its IP address
     prefer-ip-address: true
+
+    # Create a unique ID for this service instance
     instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
 
+
+# ============================================================
+# JWT
+# ============================================================
+
 jwt:
-  secret: "mffdgldfjldhbhfd--gsglsddlwefkgmghb-fsfgwsgwef-gerggrhrehwgsgsgwewe-ggrgwergwergewrgeg-"
-  expiration: 86400000 #1day
+
+  # Secret key used to sign and verify JWT tokens
+  #
+  # The same secret must be available when creating
+  # and validating the token.
+  #
+  # IMPORTANT:
+  # Do not commit the real secret to GitHub.
+  # Use an environment variable in production.
+  secret: ${JWT_SECRET}
+
+  # How long the JWT remains valid
+  #
+  # Value is in milliseconds:
+  # 86,400,000 ms = 24 hours = 1 day
+  expiration: 86400000 # 1 day
