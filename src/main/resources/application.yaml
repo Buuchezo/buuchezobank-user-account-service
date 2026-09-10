@@ -59,6 +59,37 @@ spring:
         # object was sent.
         spring.json.add.type: true
 
+    # Kafka consumer configuration
+    consumer:
+
+      # Consumer group used by this service
+      group-id: account-group
+
+      # If no offset exists, start reading from the oldest message
+      auto-offset-reset: earliest
+
+      # Automatically commit consumed message offsets
+      enable-auto-commit: true
+
+      # Convert Kafka message key → Java String
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+      # Handles errors when converting Kafka JSON into a Java object
+      value-deserializer: org.springframework.kafka.support.ErrorHandlingDeserializer
+
+      properties:
+
+        # Use JsonDeserializer to convert JSON → Java object
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+
+        # Map the event class from the producer service
+        # to the equivalent event class in this service
+        #
+        # Producer class → Consumer class
+        spring.json.type.mapping: >-
+         com.buuchezo.transactionservice.kafka.dto.BalanceUpdateEvent:
+         com.buuchezo.useraccountservice.kafka.dto.BalanceUpdateEvent
+
 
 # ============================================================
 # SERVER
