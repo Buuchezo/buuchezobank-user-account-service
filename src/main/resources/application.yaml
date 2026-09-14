@@ -18,7 +18,7 @@ spring:
     url: jdbc:postgresql://database-buuchezo.czoeaksgses7.eu-north-1.rds.amazonaws.com:5432/buuchezobank_users_account_db
 
     # PostgreSQL username
-    username: postgres
+    username: ${DB_USERNAME}
 
     # Database password
     # In production, use an environment variable instead
@@ -87,8 +87,8 @@ spring:
         #
         # Producer class → Consumer class
         spring.json.type.mapping: >-
-         com.buuchezo.transactionservice.kafka.dto.BalanceUpdateEvent:
-         com.buuchezo.useraccountservice.kafka.dto.BalanceUpdateEvent
+          com.buuchezo.transactionservice.kafka.dto.BalanceUpdateEvent:
+          com.buuchezo.useraccountservice.kafka.dto.BalanceUpdateEvent
 
 
 # ============================================================
@@ -161,4 +161,4 @@ jwt:
   #
   # Value is in milliseconds:
   # 86,400,000 ms = 24 hours = 1 day
-  expiration: 86400000 # 1 day
+  expiration: ${EXPIRATION}
