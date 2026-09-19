@@ -25,9 +25,12 @@ public class AccountBalanceConsumer {
     @Transactional
     public void consumerBalanceUpdate(BalanceUpdateEvent event) {
         log.info(
-                "INCOMING BALANCE EVENT: type={}, direction={}, reference={}",
+                "INCOMING EVENT: account={}, type={}, direction={}, status={}, currency={}, reference={}",
+                event.getAccountNumber(),
                 event.getTransactionType(),
                 event.getTransactionDirection(),
+                event.getTransactionStatus(),
+                event.getCurrency(),
                 event.getReference()
         );
 
@@ -102,4 +105,6 @@ public class AccountBalanceConsumer {
                 balanceUpdateEventToPublishNotification
         );
     }
+
+
 }
