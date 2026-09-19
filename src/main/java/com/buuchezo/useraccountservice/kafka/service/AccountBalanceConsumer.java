@@ -24,6 +24,12 @@ public class AccountBalanceConsumer {
     )
     @Transactional
     public void consumerBalanceUpdate(BalanceUpdateEvent event) {
+        log.info(
+                "INCOMING BALANCE EVENT: type={}, direction={}, reference={}",
+                event.getTransactionType(),
+                event.getTransactionDirection(),
+                event.getReference()
+        );
 
         log.info(
                 "Processing balance update for account number: {}",

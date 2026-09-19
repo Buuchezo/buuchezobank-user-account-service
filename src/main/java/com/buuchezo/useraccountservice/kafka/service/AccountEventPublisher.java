@@ -25,6 +25,7 @@ public class AccountEventPublisher {
             log.error("Error publishing user registration event: {}", e.getMessage());
         }
     }
+    
 
     public void publishTransactionNotificationEvent(BalanceUpdateEvent event) {
         try {
