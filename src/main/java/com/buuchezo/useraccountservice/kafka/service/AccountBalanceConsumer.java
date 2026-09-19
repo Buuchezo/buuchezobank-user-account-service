@@ -86,6 +86,7 @@ public class AccountBalanceConsumer {
                         .accountNumber(account.getAccountNumber())
                         .amount(event.getAmount())
                         .transactionDirection(event.getTransactionDirection())
+                        .transactionType(event.getTransactionType())
                         .reference(event.getReference())
                         .description(event.getDescription())
                         .currentBalance(account.getBalance())
