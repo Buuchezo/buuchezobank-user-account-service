@@ -75,7 +75,7 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
       # Handles errors when converting Kafka JSON into a Java object
-      value-deserializer: org.springframework.kafka.support.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
 
       properties:
 
@@ -161,5 +161,5 @@ jwt:
   #
   # Value is in milliseconds:
   # 86,400,000 ms = 24 hours = 1 day
-  expiration: ${EXPIRATION}
 
+  expiration: ${EXPIRATION}
