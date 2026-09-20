@@ -10,6 +10,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -27,6 +28,7 @@ public class BalanceUpdateEvent {
     private TransactionType transactionType;
     private String reference;
     private Currency currency;
+    private UUID eventId;
 
 
     // core transaction used by notification service

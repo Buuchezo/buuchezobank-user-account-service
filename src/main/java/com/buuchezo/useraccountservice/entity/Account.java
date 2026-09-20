@@ -30,6 +30,10 @@ public class Account {
     @Column(nullable = false)
     private BigDecimal balance;
 
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @Enumerated(EnumType.STRING)
     private Currency currency;   // USD EUR
 
