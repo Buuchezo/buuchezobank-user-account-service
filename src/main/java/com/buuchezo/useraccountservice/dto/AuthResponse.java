@@ -1,6 +1,5 @@
 package com.buuchezo.useraccountservice.dto;
 
-
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
@@ -13,5 +12,10 @@ import lombok.*;
 public class AuthResponse {
 
     private String token;
+
     private UserDto user;
+
+    private Boolean requiresTwoFactor;
+
+    private String challengeToken;
 }

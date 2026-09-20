@@ -15,6 +15,7 @@ import com.buuchezo.useraccountservice.repository.AccountRepository;
 import com.buuchezo.useraccountservice.repository.RoleRepository;
 import com.buuchezo.useraccountservice.repository.UserRepository;
 import com.buuchezo.useraccountservice.security.JwtService;
+import com.buuchezo.useraccountservice.security.TotpService;
 import com.buuchezo.useraccountservice.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -33,6 +39,10 @@ import java.util.concurrent.ThreadLocalRandom;
 @Slf4j
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
+
+    private static final int TWO_FACTOR_CHALLENGE_LENGTH = 32;
+    private static final int TWO_FACTOR_CHALLENGE_MINUTES = 5;
+
     private final UserRepository userRepository;
     private final AccountRepository accountRepository;
     private final PasswordEncoder passwordEncoder;
@@ -40,27 +50,47 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final ModelMapper modelMapper;
     private final AccountEventPublisher accountEventPublisher;
+    private final TotpService totpService;
+
+    private final SecureRandom secureRandom = new SecureRandom();
 
     @Override
-    public ApiResponse<AuthResponse> registerUser(RegistrationRequest registrationRequest) {
+    public ApiResponse<AuthResponse> registerUser(
+            RegistrationRequest registrationRequest
+    ) {
+
         log.info("We are inside the register user service method");
+
         if (userRepository.existsByEmail(registrationRequest.getEmail())) {
-            throw new BadRequestException("User with this email already exists");
+            throw new BadRequestException(
+                    "User with this email already exists"
+            );
         }
+
         Set<Role> roles = new HashSet<>();
-        String roleName = (registrationRequest.getRole() != null && !registrationRequest
-                .getRole()
-                .isBlank())
-                ? registrationRequest.getRole().toUpperCase() : "CUSTOMER";
+
+        String roleName =
+                (registrationRequest.getRole() != null
+                        && !registrationRequest.getRole().isBlank())
+                        ? registrationRequest.getRole().toUpperCase()
+                        : "CUSTOMER";
 
         var assignedRole = roleRepository.findByName(roleName)
-                .orElseThrow(() -> new NotFoundException("Role with name " + roleName + " not found"));
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "Role with name " + roleName + " not found"
+                        )
+                );
 
         roles.add(assignedRole);
 
         var registeredUser = User.builder()
                 .email(registrationRequest.getEmail())
-                .password(passwordEncoder.encode(registrationRequest.getPassword()))
+                .password(
+                        passwordEncoder.encode(
+                                registrationRequest.getPassword()
+                        )
+                )
                 .firstName(registrationRequest.getFirstName())
                 .lastName(registrationRequest.getLastName())
                 .enabled(true)
@@ -69,12 +99,8 @@ public class AuthServiceImpl implements AuthService {
 
         var newUser = userRepository.save(registeredUser);
 
-        // TODO Generate a unique account number and send and an email out to him/her account details
-        //  and the save the account number to the database
-
-
-        //Generate a unique number for the user
         String accountNumber = generateUniqueAccountNumber();
+
         var accountToSaveToDb = Account.builder()
                 .accountNumber(accountNumber)
                 .balance(BigDecimal.ZERO)
@@ -83,9 +109,9 @@ public class AuthServiceImpl implements AuthService {
                 .accountStatus(AccountStatus.ACTIVE)
                 .user(newUser)
                 .build();
+
         accountRepository.save(accountToSaveToDb);
 
-        //Publish event out to the notification service
         var userRegistrationEvent = UserRegistrationEvent.builder()
                 .email(newUser.getEmail())
                 .firstName(newUser.getFirstName())
@@ -93,55 +119,462 @@ public class AuthServiceImpl implements AuthService {
                 .accountNumber(accountNumber)
                 .bankName("Buuchezo Bank")
                 .build();
-        //it´s going to publish through kafka
-        accountEventPublisher.publishUserRegistrationEvent(userRegistrationEvent);
 
-        // Generate token for te user
+        accountEventPublisher.publishUserRegistrationEvent(
+                userRegistrationEvent
+        );
 
+        var userDto = modelMapper.map(
+                newUser,
+                UserDto.class
+        );
 
-        // Convert to dto
-
-        var userDto = modelMapper.map(newUser, UserDto.class);
         var authResponse = AuthResponse.builder()
                 .user(userDto)
                 .build();
 
-        return new ApiResponse<>(HttpStatus.CREATED.value(), "User registered successfully", authResponse);
+        return new ApiResponse<>(
+                HttpStatus.CREATED.value(),
+                "User registered successfully",
+                authResponse
+        );
     }
 
     @Override
-    public ApiResponse<AuthResponse> loginUser(LoginRequest loginRequest) {
+    public ApiResponse<AuthResponse> loginUser(
+            LoginRequest loginRequest
+    ) {
+
         log.info("inside login user service method");
-        var user = userRepository.findByEmail(loginRequest.getEmail())
+
+        var user = userRepository.findByEmail(
+                        loginRequest.getEmail()
+                )
                 .orElseThrow(() ->
-                        new NotFoundException("User with email " + loginRequest.getEmail() + " not found"));
+                        new NotFoundException(
+                                "User with email "
+                                        + loginRequest.getEmail()
+                                        + " not found"
+                        )
+                );
 
-        if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
-            throw new BadRequestException("Password doesn´t match");
+        if (!passwordEncoder.matches(
+                loginRequest.getPassword(),
+                user.getPassword()
+        )) {
+            throw new BadRequestException(
+                    "Password doesn´t match"
+            );
         }
+
         if (!user.isEnabled()) {
-            throw new BadRequestException("User is not enabled");
+            throw new BadRequestException(
+                    "User is not enabled"
+            );
         }
 
-        List<String> roles = user.getRoles().stream().map(Role::getName).toList();
+        List<String> roles = user.getRoles()
+                .stream()
+                .map(Role::getName)
+                .toList();
 
-        String token = jwtService.generateToken(user.getEmail(), roles);
-        var userDto = modelMapper.map(user, UserDto.class);
-        AuthResponse authResponse = AuthResponse
-                .builder()
+        var userDto = modelMapper.map(
+                user,
+                UserDto.class
+        );
+
+        /*
+         * If 2FA is enabled, do not issue the real JWT yet.
+         * Generate a short-lived login challenge instead.
+         */
+        if (user.isTwoFactorEnabled()) {
+
+            String challengeToken = generateChallengeToken();
+
+            user.setTwoFactorChallengeHash(
+                    hashChallengeToken(challengeToken)
+            );
+
+            user.setTwoFactorChallengeExpiresAt(
+                    LocalDateTime.now()
+                            .plusMinutes(TWO_FACTOR_CHALLENGE_MINUTES)
+            );
+
+            userRepository.save(user);
+
+            AuthResponse authResponse = AuthResponse.builder()
+                    .user(userDto)
+                    .requiresTwoFactor(true)
+                    .challengeToken(challengeToken)
+                    .build();
+
+            return new ApiResponse<>(
+                    HttpStatus.OK.value(),
+                    "Two-factor authentication required",
+                    authResponse
+            );
+        }
+
+        /*
+         * If 2FA is disabled, issue the JWT immediately.
+         */
+        String token = jwtService.generateToken(
+                user.getEmail(),
+                roles
+        );
+
+        AuthResponse authResponse = AuthResponse.builder()
                 .token(token)
                 .user(userDto)
+                .requiresTwoFactor(false)
                 .build();
-        return new ApiResponse<>(HttpStatus.OK.value(), "User logged in successfully", authResponse);
+
+        return new ApiResponse<>(
+                HttpStatus.OK.value(),
+                "User logged in successfully",
+                authResponse
+        );
+    }
+
+    @Override
+    public ApiResponse<AuthResponse> verifyTwoFactorLogin(
+            TwoFactorLoginRequest request
+    ) {
+
+        log.info("Verifying two-factor login challenge");
+
+        String challengeHash = hashChallengeToken(
+                request.getChallengeToken()
+        );
+
+        var user = userRepository
+                .findByTwoFactorChallengeHash(challengeHash)
+                .orElseThrow(() ->
+                        new BadRequestException(
+                                "Invalid or expired two-factor challenge"
+                        )
+                );
+
+        if (!user.isEnabled()) {
+            throw new BadRequestException(
+                    "User is not enabled"
+            );
+        }
+
+        if (!user.isTwoFactorEnabled()) {
+            throw new BadRequestException(
+                    "Two-factor authentication is not enabled"
+            );
+        }
+
+        if (user.getTwoFactorChallengeExpiresAt() == null
+                || user.getTwoFactorChallengeExpiresAt()
+                .isBefore(LocalDateTime.now())) {
+
+            clearTwoFactorChallenge(user);
+
+            userRepository.save(user);
+
+            throw new BadRequestException(
+                    "Two-factor challenge has expired"
+            );
+        }
+
+        boolean valid = totpService.verifyCode(
+                user.getTotpSecret(),
+                request.getCode()
+        );
+
+        if (!valid) {
+            throw new BadRequestException(
+                    "Invalid verification code"
+            );
+        }
+
+        List<String> roles = user.getRoles()
+                .stream()
+                .map(Role::getName)
+                .toList();
+
+        /*
+         * Consume the challenge before issuing the JWT.
+         * This makes the challenge single-use.
+         */
+        clearTwoFactorChallenge(user);
+
+        userRepository.save(user);
+
+        String token = jwtService.generateToken(
+                user.getEmail(),
+                roles
+        );
+
+        var userDto = modelMapper.map(
+                user,
+                UserDto.class
+        );
+
+        AuthResponse authResponse = AuthResponse.builder()
+                .token(token)
+                .user(userDto)
+                .requiresTwoFactor(false)
+                .build();
+
+        return new ApiResponse<>(
+                HttpStatus.OK.value(),
+                "User logged in successfully",
+                authResponse
+        );
+    }
+
+    @Override
+    public ApiResponse<TwoFactorSetupResponse> setupTwoFactor(
+            String email
+    ) {
+
+        log.info(
+                "Starting two-factor authentication setup for user {}",
+                email
+        );
+
+        var user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User with email " + email + " not found"
+                        )
+                );
+
+        if (user.isTwoFactorEnabled()) {
+            throw new BadRequestException(
+                    "Two-factor authentication is already enabled"
+            );
+        }
+
+        String secret = totpService.generateSecret();
+
+        user.setTotpSecret(secret);
+        user.setTwoFactorEnabled(false);
+
+        userRepository.save(user);
+
+        String otpAuthUri = totpService.generateOtpAuthUri(
+                user.getEmail(),
+                secret
+        );
+
+        var response = TwoFactorSetupResponse.builder()
+                .enabled(false)
+                .secret(secret)
+                .otpAuthUri(otpAuthUri)
+                .build();
+
+        log.info(
+                "Two-factor authentication setup generated for user {}",
+                email
+        );
+
+        return new ApiResponse<>(
+                HttpStatus.OK.value(),
+                "Two-factor authentication setup initiated",
+                response
+        );
+    }
+
+    @Override
+    public ApiResponse<TwoFactorSetupResponse> verifyTwoFactorSetup(
+            String email,
+            TwoFactorVerifyRequest request
+    ) {
+
+        log.info(
+                "Verifying two-factor authentication setup for user {}",
+                email
+        );
+
+        var user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User with email " + email + " not found"
+                        )
+                );
+
+        if (user.isTwoFactorEnabled()) {
+            throw new BadRequestException(
+                    "Two-factor authentication is already enabled"
+            );
+        }
+
+        if (user.getTotpSecret() == null
+                || user.getTotpSecret().isBlank()) {
+
+            throw new BadRequestException(
+                    "Two-factor authentication setup has not been initiated"
+            );
+        }
+
+        boolean valid = totpService.verifyCode(
+                user.getTotpSecret(),
+                request.getCode()
+        );
+
+        if (!valid) {
+            throw new BadRequestException(
+                    "Invalid verification code"
+            );
+        }
+
+        user.setTwoFactorEnabled(true);
+
+        userRepository.save(user);
+
+        var response = TwoFactorSetupResponse.builder()
+                .enabled(true)
+                .build();
+
+        log.info(
+                "Two-factor authentication successfully enabled for user {}",
+                email
+        );
+
+        return new ApiResponse<>(
+                HttpStatus.OK.value(),
+                "Two-factor authentication enabled successfully",
+                response
+        );
+    }
+
+    @Override
+    public ApiResponse<Void> disableTwoFactor(
+            String email,
+            TwoFactorVerifyRequest request
+    ) {
+
+        log.info(
+                "Attempting to disable two-factor authentication for user {}",
+                email
+        );
+
+        var user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new NotFoundException(
+                                "User with email " + email + " not found"
+                        )
+                );
+
+        if (!user.isTwoFactorEnabled()) {
+            throw new BadRequestException(
+                    "Two-factor authentication is not enabled"
+            );
+        }
+
+        boolean valid = totpService.verifyCode(
+                user.getTotpSecret(),
+                request.getCode()
+        );
+
+        if (!valid) {
+            throw new BadRequestException(
+                    "Invalid verification code"
+            );
+        }
+
+        user.setTwoFactorEnabled(false);
+        user.setTotpSecret(null);
+
+        clearTwoFactorChallenge(user);
+
+        userRepository.save(user);
+
+        log.info(
+                "Two-factor authentication disabled for user {}",
+                email
+        );
+
+        return new ApiResponse<>(
+                HttpStatus.OK.value(),
+                "Two-factor authentication disabled successfully",
+                null
+        );
+    }
+
+    private String generateChallengeToken() {
+
+        byte[] bytes = new byte[TWO_FACTOR_CHALLENGE_LENGTH];
+
+        secureRandom.nextBytes(bytes);
+
+        StringBuilder token = new StringBuilder(
+                TWO_FACTOR_CHALLENGE_LENGTH * 2
+        );
+
+        for (byte b : bytes) {
+            token.append(String.format("%02x", b));
+        }
+
+        return token.toString();
+    }
+
+    private String hashChallengeToken(String challengeToken) {
+
+        if (challengeToken == null || challengeToken.isBlank()) {
+            throw new BadRequestException(
+                    "Challenge token is required"
+            );
+        }
+
+        try {
+
+            MessageDigest digest =
+                    MessageDigest.getInstance("SHA-256");
+
+            byte[] hash = digest.digest(
+                    challengeToken.getBytes(StandardCharsets.UTF_8)
+            );
+
+            StringBuilder hex = new StringBuilder(
+                    hash.length * 2
+            );
+
+            for (byte b : hash) {
+                hex.append(String.format("%02x", b));
+            }
+
+            return hex.toString();
+
+        } catch (NoSuchAlgorithmException e) {
+
+            throw new IllegalStateException(
+                    "SHA-256 algorithm is not available",
+                    e
+            );
+        }
+    }
+
+    private void clearTwoFactorChallenge(User user) {
+
+        user.setTwoFactorChallengeHash(null);
+        user.setTwoFactorChallengeExpiresAt(null);
     }
 
     private String generateUniqueAccountNumber() {
+
         String accountNumber;
+
         var random = ThreadLocalRandom.current();
+
         do {
+
             int randomPart = random.nextInt(100_000_000);
-            accountNumber = String.format("00%08d", randomPart);
-        } while (accountRepository.existsByAccountNumber(accountNumber));
+
+            accountNumber = String.format(
+                    "00%08d",
+                    randomPart
+            );
+
+        } while (
+                accountRepository.existsByAccountNumber(accountNumber)
+        );
+
         return accountNumber;
     }
 }
