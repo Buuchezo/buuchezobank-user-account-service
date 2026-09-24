@@ -1,6 +1,5 @@
 package com.buuchezo.useraccountservice.security;
 
-
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -27,15 +26,32 @@ public class JwtService {
 
     @PostConstruct
     public void init() {
-        this.secretKey = Keys.hmacShaKeyFor(SECRET_KEY.getBytes(StandardCharsets.UTF_8));
+        this.secretKey = Keys.hmacShaKeyFor(
+                SECRET_KEY.getBytes(StandardCharsets.UTF_8)
+        );
     }
 
     public String generateToken(String username, List<String> roles) {
+        return generateToken(username, roles, "CUSTOMER");
+    }
+
+    public String generateAdminToken(String username) {
+        return generateToken(username, List.of("ADMIN"), "ADMIN");
+    }
+
+    public String generateToken(
+            String username,
+            List<String> roles,
+            String authenticationType
+    ) {
         return Jwts.builder()
                 .subject(username)
                 .claim("role", roles)
+                .claim("authType", authenticationType)
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new java.util.Date(System.currentTimeMillis() + EXPIRATION))
+                .expiration(
+                        new Date(System.currentTimeMillis() + EXPIRATION)
+                )
                 .signWith(secretKey, Jwts.SIG.HS512)
                 .compact();
     }
@@ -44,8 +60,24 @@ public class JwtService {
         return extractClaims(token, Claims::getSubject);
     }
 
-    public <T> T extractClaims(String token, Function<Claims, T> claimsResolver) {
+    public String extractAuthenticationType(String token) {
+        return extractClaims(
+                token,
+                claims -> claims.get("authType", String.class)
+        );
+    }
 
+    public List<String> extractRoles(String token) {
+        return extractClaims(
+                token,
+                claims -> claims.get("role", List.class)
+        );
+    }
+
+    public <T> T extractClaims(
+            String token,
+            Function<Claims, T> claimsResolver
+    ) {
         final Claims claim = extractAllClaims(token);
         return claimsResolver.apply(claim);
     }
@@ -56,7 +88,6 @@ public class JwtService {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-
     }
 
     private boolean isTokenExpired(String token) {
@@ -69,8 +100,8 @@ public class JwtService {
 
     public boolean isTokenValid(String token, String username) {
         final String extractedUsername = extractUsername(token);
-        return (extractedUsername.equals(username) && !isTokenExpired(token));
+
+        return extractedUsername.equals(username)
+                && !isTokenExpired(token);
     }
-
-
 }

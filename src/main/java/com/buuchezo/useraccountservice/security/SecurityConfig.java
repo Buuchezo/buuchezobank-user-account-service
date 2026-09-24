@@ -1,6 +1,5 @@
 package com.buuchezo.useraccountservice.security;
 
-
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,7 +22,9 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity httpSecurity
+    ) {
 
         httpSecurity
                 .csrf(AbstractHttpConfigurer::disable)
@@ -31,12 +32,18 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/register",
                                 "/api/auth/login",
-                                "/api/auth/2fa/login"
+                                "/api/auth/2fa/login",
+                                "/api/admin/auth/login"
                         ).permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        ))
+                .addFilterBefore(
+                        jwtAuthFilter,
+                        UsernamePasswordAuthenticationFilter.class
+                );
 
         return httpSecurity.build();
     }

@@ -67,22 +67,21 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
+        /*
+         * Public registration can NEVER create an ADMIN account.
+         * Administrative accounts are created and authenticated
+         * exclusively through the separate admins table.
+         */
         Set<Role> roles = new HashSet<>();
 
-        String roleName =
-                (registrationRequest.getRole() != null
-                        && !registrationRequest.getRole().isBlank())
-                        ? registrationRequest.getRole().toUpperCase()
-                        : "CUSTOMER";
-
-        var assignedRole = roleRepository.findByName(roleName)
+        var customerRole = roleRepository.findByName("CUSTOMER")
                 .orElseThrow(() ->
                         new NotFoundException(
-                                "Role with name " + roleName + " not found"
+                                "Role with name CUSTOMER not found"
                         )
                 );
 
-        roles.add(assignedRole);
+        roles.add(customerRole);
 
         var registeredUser = User.builder()
                 .email(registrationRequest.getEmail())
@@ -173,10 +172,12 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
-        List<String> roles = user.getRoles()
-                .stream()
-                .map(Role::getName)
-                .toList();
+        /*
+         * Customer authentication can NEVER issue ADMIN authority.
+         * Administrative authentication is handled exclusively by
+         * AdminAuthService using the admins table.
+         */
+        List<String> roles = List.of("CUSTOMER");
 
         var userDto = modelMapper.map(
                 user,
@@ -291,10 +292,10 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
-        List<String> roles = user.getRoles()
-                .stream()
-                .map(Role::getName)
-                .toList();
+        /*
+         * Customer 2FA authentication can NEVER issue ADMIN authority.
+         */
+        List<String> roles = List.of("CUSTOMER");
 
         /*
          * Consume the challenge before issuing the JWT.

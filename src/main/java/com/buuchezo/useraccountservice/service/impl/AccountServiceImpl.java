@@ -81,25 +81,39 @@ public class AccountServiceImpl implements AccountService {
         return new ApiResponse<>(
                 HttpStatus.OK.value(),
                 "Account status changed",
-                accountDto);
+               accountDto);
     }
 
-    @Override
-    public ApiResponse<Page<AccountDto>> getAllAccount(Pageable pageable) {
-        Pageable sortedPageable = PageRequest.of(
-                pageable.getPageNumber(),
-                pageable.getPageSize(),
-                Sort.by("createdAt").descending()
-        );
+   @Override
+   public ApiResponse<Page<AccountDto>> getAllAccount(Pageable pageable) {
 
-        Page<Account> accounts = accountRepository.findAll(pageable);
-        Page<AccountDto> dtoPage = accounts
-                .map(account -> modelMapper
-                        .map(account, AccountDto.class));
+    Pageable sortedPageable = PageRequest.of(
+            pageable.getPageNumber(),
+            pageable.getPageSize(),
+            Sort.by("createdAt").descending()
+    );
 
-        return new ApiResponse<>(
-                HttpStatus.OK.value(),
-                "Accounts retrieved",
-                dtoPage);
-    }
+    Page<Account> accounts =
+            accountRepository.findAll(sortedPageable);
+
+    Page<AccountDto> dtoPage = accounts.map(account -> {
+
+        AccountDto accountDto =
+                modelMapper.map(account, AccountDto.class);
+
+        if (account.getUser() != null) {
+            accountDto.setOwnerEmail(
+                    account.getUser().getEmail()
+            );
+        }
+
+        return accountDto;
+    });
+
+    return new ApiResponse<>(
+            HttpStatus.OK.value(),
+            "Accounts retrieved",
+            dtoPage
+    );
+}
 }
