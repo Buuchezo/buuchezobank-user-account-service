@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
@@ -63,6 +64,33 @@ public class GlobalExceptionHandler extends RuntimeException {
         return new ResponseEntity<>(
                 errorResponse,
                 HttpStatus.FORBIDDEN
+        );
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<?>> handleValidationException(
+            MethodArgumentNotValidException ex
+    ) {
+
+        String message = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(error ->
+                        error.getField() + ": " + error.getDefaultMessage()
+                )
+                .collect(java.util.stream.Collectors.joining("; "));
+
+        log.warn("Validation failed: {}", message);
+
+        var errorResponse = new ApiResponse<>(
+                HttpStatus.BAD_REQUEST.value(),
+                message,
+                null
+        );
+
+        return new ResponseEntity<>(
+                errorResponse,
+                HttpStatus.BAD_REQUEST
         );
     }
 
