@@ -5,6 +5,7 @@ import com.buuchezo.useraccountservice.entity.Account;
 import com.buuchezo.useraccountservice.entity.Role;
 import com.buuchezo.useraccountservice.entity.User;
 import com.buuchezo.useraccountservice.enums.AccountStatus;
+import com.buuchezo.useraccountservice.enums.AccountOwnershipType;
 import com.buuchezo.useraccountservice.enums.AccountType;
 import com.buuchezo.useraccountservice.enums.Currency;
 import com.buuchezo.useraccountservice.exceptions.BadRequestException;
@@ -106,6 +107,7 @@ public class AuthServiceImpl implements AuthService {
                 .currency(Currency.USD)
                 .accountType(AccountType.SAVINGS)
                 .accountStatus(AccountStatus.ACTIVE)
+                .ownershipType(AccountOwnershipType.PERSONAL)
                 .user(newUser)
                 .build();
 

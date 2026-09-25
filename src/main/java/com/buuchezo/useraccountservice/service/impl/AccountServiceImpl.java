@@ -30,90 +30,126 @@ public class AccountServiceImpl implements AccountService {
     private final UserRepository userRepository;
     private final ModelMapper modelMapper;
 
-
     @Override
     public ApiResponse<AccountDto> getMyAccount() {
+
         log.info("fetching account for logged in user");
-        String userEmail = Objects.requireNonNull(SecurityContextHolder
+
+        String userEmail = Objects.requireNonNull(
+                SecurityContextHolder
                         .getContext()
-                        .getAuthentication())
-                .getName();
+                        .getAuthentication()
+        ).getName();
+
         var user = userRepository
                 .findByEmail(userEmail)
-                .orElseThrow(() -> new NotFoundException("User not found"));
+                .orElseThrow(() ->
+                        new NotFoundException("User not found"));
 
         var account = accountRepository
                 .findByUser(user)
-                .orElseThrow(() -> new NotFoundException("Account not found"));
-
-        var accountDto = modelMapper.map(account, AccountDto.class);
-
-        return new ApiResponse<>(
-                HttpStatus.OK.value(),
-                "Account retrieved",
-                accountDto);
-    }
-
-    @Override
-    public ApiResponse<AccountDto> getAccountNumber(String accountNumber) {
-        var account = accountRepository
-                .findByAccountNumber(accountNumber)
-                .orElseThrow(() -> new NotFoundException("Account not found"));
-
-        var accountDto = modelMapper.map(account, AccountDto.class);
-        accountDto.setOwnerEmail(account.getUser().getEmail());
+                .orElseThrow(() ->
+                        new NotFoundException("Account not found"));
 
         return new ApiResponse<>(
                 HttpStatus.OK.value(),
                 "Account retrieved",
-                accountDto);
+                toDto(account)
+        );
     }
 
     @Override
-    public ApiResponse<AccountDto> changeAccountStatus(String accountNumber, AccountStatus status) {
+    public ApiResponse<AccountDto> getAccountNumber(
+            String accountNumber
+    ) {
+
         var account = accountRepository
                 .findByAccountNumber(accountNumber)
-                .orElseThrow(() -> new NotFoundException("Account not found"));
+                .orElseThrow(() ->
+                        new NotFoundException("Account not found"));
+
+        return new ApiResponse<>(
+                HttpStatus.OK.value(),
+                "Account retrieved",
+                toDto(account)
+        );
+    }
+
+    @Override
+    public ApiResponse<AccountDto> changeAccountStatus(
+            String accountNumber,
+            AccountStatus status
+    ) {
+
+        var account = accountRepository
+                .findByAccountNumber(accountNumber)
+                .orElseThrow(() ->
+                        new NotFoundException("Account not found"));
+
         account.setAccountStatus(status);
+
         var changedAccount = accountRepository.save(account);
-        var accountDto = modelMapper.map(changedAccount, AccountDto.class);
 
         return new ApiResponse<>(
                 HttpStatus.OK.value(),
                 "Account status changed",
-               accountDto);
+                toDto(changedAccount)
+        );
     }
 
-   @Override
-   public ApiResponse<Page<AccountDto>> getAllAccount(Pageable pageable) {
+    @Override
+    public ApiResponse<Page<AccountDto>> getAllAccount(
+            Pageable pageable
+    ) {
 
-    Pageable sortedPageable = PageRequest.of(
-            pageable.getPageNumber(),
-            pageable.getPageSize(),
-            Sort.by("createdAt").descending()
-    );
+        Pageable sortedPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by("createdAt").descending()
+        );
 
-    Page<Account> accounts =
-            accountRepository.findAll(sortedPageable);
+        Page<Account> accounts =
+                accountRepository.findAll(sortedPageable);
 
-    Page<AccountDto> dtoPage = accounts.map(account -> {
+        Page<AccountDto> dtoPage =
+                accounts.map(this::toDto);
+
+        return new ApiResponse<>(
+                HttpStatus.OK.value(),
+                "Accounts retrieved",
+                dtoPage
+        );
+    }
+
+    private AccountDto toDto(Account account) {
 
         AccountDto accountDto =
                 modelMapper.map(account, AccountDto.class);
 
+        /*
+         * Personal account.
+         */
         if (account.getUser() != null) {
             accountDto.setOwnerEmail(
                     account.getUser().getEmail()
             );
         }
 
-        return accountDto;
-    });
+        /*
+         * Business account.
+         */
+        if (account.getBusiness() != null) {
+            accountDto.setBusinessId(
+                    account.getBusiness().getId()
+            );
 
-    return new ApiResponse<>(
-            HttpStatus.OK.value(),
-            "Accounts retrieved",
-            dtoPage
-    );
-}
+            accountDto.setBusinessName(
+                    account.getBusiness().getTradingName() != null
+                            ? account.getBusiness().getTradingName()
+                            : account.getBusiness().getLegalName()
+            );
+        }
+
+        return accountDto;
+    }
 }

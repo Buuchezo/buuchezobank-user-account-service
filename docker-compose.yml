@@ -1,7 +1,7 @@
 services:
   discovery-service:
     build:
-      context: ./buuchezobank-discovery-service
+      context: ../buuchezobank-discovery-service
     container_name: discovery-service
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8761/actuator/health" ]
@@ -34,28 +34,28 @@ services:
       - buuchezobank-net
 
   api-gateway:
-    build: ./buuchezobank-api-gateway
+    build: ../buuchezobank-api-gateway
     container_name: api-gateway
     ports:
       - "8084:8084"
     depends_on:
       discovery-service:
         condition: service_healthy
-    env_file: .env
+    env_file: /home/ec2-user/projects/.env
     environment:
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
     networks:
       - buuchezobank-net
 
   user-account-service:
-    build: ./buuchezobank-user-account-service
+    build: .
     container_name: user-account-service
     depends_on:
       discovery-service:
         condition: service_healthy
       kafka:
         condition: service_started
-    env_file: .env
+    env_file: /home/ec2-user/projects/.env
     environment:
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
@@ -63,14 +63,14 @@ services:
       - buuchezobank-net
 
   transaction-service:
-    build: ./buuchezobank-transaction-service
+    build: ../buuchezobank-transaction-service
     container_name: transaction-service
     depends_on:
       discovery-service:
         condition: service_healthy
       kafka:
         condition: service_started
-    env_file: .env
+    env_file: /home/ec2-user/projects/.env
     environment:
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/
@@ -78,14 +78,14 @@ services:
       - buuchezobank-net
 
   notification-service:
-    build: ./buuchezobank-notification-service
+    build: ../buuchezobank-notification-service
     container_name: notification-service
     depends_on:
       discovery-service:
         condition: service_healthy
       kafka:
         condition: service_started
-    env_file: .env
+    env_file: /home/ec2-user/projects/.env
     environment:
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://discovery-service:8761/eureka/

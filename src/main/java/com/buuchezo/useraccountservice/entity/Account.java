@@ -1,14 +1,15 @@
 package com.buuchezo.useraccountservice.entity;
 
+import com.buuchezo.useraccountservice.enums.AccountOwnershipType;
 import com.buuchezo.useraccountservice.enums.AccountStatus;
 import com.buuchezo.useraccountservice.enums.AccountType;
 import com.buuchezo.useraccountservice.enums.Currency;
+
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-
 
 @Entity
 @Table(name = "accounts")
@@ -19,7 +20,6 @@ import java.time.LocalDateTime;
 @Builder
 public class Account {
 
-    private final LocalDateTime createdAt = LocalDateTime.now();
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -30,22 +30,43 @@ public class Account {
     @Column(nullable = false)
     private BigDecimal balance;
 
-    @Version
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Long version;
+    private Currency currency;
 
     @Enumerated(EnumType.STRING)
-    private Currency currency;   // USD EUR
+    @Column(nullable = false)
+    private AccountType accountType;
 
     @Enumerated(EnumType.STRING)
-    private AccountType accountType; // SAVINGS CURRENT CHECKING
+    @Column(nullable = false)
+    private AccountStatus accountStatus;
 
     @Enumerated(EnumType.STRING)
-    private AccountStatus accountStatus; // ACTIVE INACTIVE CLOSED
+    @Column(name = "ownership_type")
+    @Builder.Default
+    private AccountOwnershipType ownershipType = AccountOwnershipType.PERSONAL;
 
-    @OneToOne
+    /*
+     * Personal account owner.
+     *
+     * A user can have multiple accounts, so this is intentionally
+     * ManyToOne rather than OneToOne.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
 
+    /*
+     * Business account owner.
+     *
+     * A business can have multiple accounts.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "business_id")
+    private Business business;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
 }
