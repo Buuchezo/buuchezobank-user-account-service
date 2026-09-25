@@ -33,7 +33,8 @@ public class SecurityConfig {
                                 "/api/auth/register",
                                 "/api/auth/login",
                                 "/api/auth/2fa/login",
-                                "/api/admin/auth/login"
+                                "/api/admin/auth/login",
+                                "/api/businesses/onboarding"
                         ).permitAll()
                         .anyRequest().authenticated())
                 .sessionManagement(session ->

@@ -17,6 +17,7 @@ import com.buuchezo.useraccountservice.repository.RoleRepository;
 import com.buuchezo.useraccountservice.repository.UserRepository;
 import com.buuchezo.useraccountservice.security.JwtService;
 import com.buuchezo.useraccountservice.security.TotpService;
+import com.buuchezo.useraccountservice.service.AccountNumberGenerator;
 import com.buuchezo.useraccountservice.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,7 +35,6 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @Slf4j
@@ -51,6 +51,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final ModelMapper modelMapper;
     private final AccountEventPublisher accountEventPublisher;
+    private final AccountNumberGenerator accountNumberGenerator;
     private final TotpService totpService;
 
     private final SecureRandom secureRandom = new SecureRandom();
@@ -99,7 +100,7 @@ public class AuthServiceImpl implements AuthService {
 
         var newUser = userRepository.save(registeredUser);
 
-        String accountNumber = generateUniqueAccountNumber();
+        String accountNumber = accountNumberGenerator.generateUniqueAccountNumber();
 
         var accountToSaveToDb = Account.builder()
                 .accountNumber(accountNumber)
@@ -559,25 +560,5 @@ public class AuthServiceImpl implements AuthService {
         user.setTwoFactorChallengeExpiresAt(null);
     }
 
-    private String generateUniqueAccountNumber() {
 
-        String accountNumber;
-
-        var random = ThreadLocalRandom.current();
-
-        do {
-
-            int randomPart = random.nextInt(100_000_000);
-
-            accountNumber = String.format(
-                    "00%08d",
-                    randomPart
-            );
-
-        } while (
-                accountRepository.existsByAccountNumber(accountNumber)
-        );
-
-        return accountNumber;
-    }
 }

@@ -1,6 +1,5 @@
 package com.buuchezo.useraccountservice.config;
 
-
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.context.annotation.Bean;
@@ -11,12 +10,17 @@ public class ModelMapperConfig {
 
     @Bean
     public ModelMapper modelMapper() {
+
         var modelMapper = new ModelMapper();
+
         modelMapper
                 .getConfiguration()
                 .setFieldMatchingEnabled(true)
-                .setFieldAccessLevel(org.modelmapper.config.Configuration.AccessLevel.PRIVATE)
-                .setMatchingStrategy(MatchingStrategies.STANDARD);
+                .setFieldAccessLevel(
+                        org.modelmapper.config.Configuration.AccessLevel.PRIVATE
+                )
+                .setMatchingStrategy(MatchingStrategies.STRICT);
+
         return modelMapper;
     }
 }

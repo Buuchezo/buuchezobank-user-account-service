@@ -13,7 +13,7 @@ public interface BusinessService {
             String userEmail
     );
 
-    BusinessDto getBusinessById(Long businessId);
+    BusinessDto getBusinessById(Long businessId, String userEmail);
 
     List<BusinessDto> getBusinessesForUser(String userEmail);
 

@@ -69,4 +69,16 @@ public class Account {
     @Column(nullable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    /*
+     * Optimistic locking version.
+     *
+     * Hibernate increments this value whenever the account is updated.
+     * This prevents concurrent balance/account updates from silently
+     * overwriting each other.
+     */
+    @Version
+    @Column(nullable = false)
+    @Builder.Default
+    private Long version = 0L;
 }

@@ -11,7 +11,10 @@ import com.buuchezo.useraccountservice.repository.BusinessMembershipRepository;
 import com.buuchezo.useraccountservice.repository.BusinessRepository;
 import com.buuchezo.useraccountservice.repository.UserRepository;
 import com.buuchezo.useraccountservice.service.BusinessService;
+import com.buuchezo.useraccountservice.exceptions.BadRequestException;
+import com.buuchezo.useraccountservice.exceptions.NotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,14 +38,14 @@ public class BusinessServiceImpl implements BusinessService {
 
         if (businessRepository.existsByRegistrationNumber(
                 request.getRegistrationNumber())) {
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "A business with this registration number already exists"
             );
         }
 
         if (businessRepository.existsByLegalNameIgnoreCase(
                 request.getLegalName())) {
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "A business with this legal name already exists"
             );
         }
@@ -75,14 +78,14 @@ public class BusinessServiceImpl implements BusinessService {
 
     @Override
     @Transactional(readOnly = true)
-    public BusinessDto getBusinessById(Long businessId) {
+    public BusinessDto getBusinessById(
+            Long businessId,
+            String userEmail
+    ) {
+        Business business = getBusiness(businessId);
+        User requester = getUser(userEmail);
 
-        Business business = businessRepository.findById(businessId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Business not found: " + businessId
-                        )
-                );
+        requireMember(business, requester);
 
         return toDto(business);
     }
@@ -116,7 +119,7 @@ public class BusinessServiceImpl implements BusinessService {
         if (membershipRepository.existsByBusinessAndUser(
                 business,
                 member)) {
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "User is already a member of this business"
             );
         }
@@ -124,7 +127,7 @@ public class BusinessServiceImpl implements BusinessService {
         BusinessRole businessRole = parseRole(role);
 
         if (businessRole == BusinessRole.OWNER) {
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "OWNER cannot be assigned through this endpoint"
             );
         }
@@ -173,20 +176,20 @@ public class BusinessServiceImpl implements BusinessService {
         BusinessMembership membership =
                 membershipRepository.findById(membershipId)
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new NotFoundException(
                                         "Membership not found: "
                                                 + membershipId
                                 )
                         );
 
         if (!membership.getBusiness().getId().equals(business.getId())) {
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "Membership does not belong to this business"
             );
         }
 
         if (membership.getRole() == BusinessRole.OWNER) {
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "OWNER role cannot be changed through this endpoint"
             );
         }
@@ -194,7 +197,7 @@ public class BusinessServiceImpl implements BusinessService {
         BusinessRole newRole = parseRole(role);
 
         if (newRole == BusinessRole.OWNER) {
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "OWNER role cannot be assigned through this endpoint"
             );
         }
@@ -220,20 +223,20 @@ public class BusinessServiceImpl implements BusinessService {
         BusinessMembership membership =
                 membershipRepository.findById(membershipId)
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new NotFoundException(
                                         "Membership not found: "
                                                 + membershipId
                                 )
                         );
 
         if (!membership.getBusiness().getId().equals(business.getId())) {
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "Membership does not belong to this business"
             );
         }
 
         if (membership.getRole() == BusinessRole.OWNER) {
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "Business owner cannot be removed"
             );
         }
@@ -245,7 +248,7 @@ public class BusinessServiceImpl implements BusinessService {
     private Business getBusiness(Long businessId) {
         return businessRepository.findById(businessId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
+                        new NotFoundException(
                                 "Business not found: " + businessId
                         )
                 );
@@ -254,7 +257,7 @@ public class BusinessServiceImpl implements BusinessService {
     private User getUser(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
+                        new NotFoundException(
                                 "User not found: " + email
                         )
                 );
@@ -270,7 +273,7 @@ public class BusinessServiceImpl implements BusinessService {
                 )
                 .filter(BusinessMembership::isActive)
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
+                        new AccessDeniedException(
                                 "User is not an active member of this business"
                         )
                 );
@@ -287,14 +290,14 @@ public class BusinessServiceImpl implements BusinessService {
                 )
                 .filter(BusinessMembership::isActive)
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
+                        new AccessDeniedException(
                                 "User is not an active member of this business"
                         )
                 );
 
         if (membership.getRole() != BusinessRole.OWNER
                 && membership.getRole() != BusinessRole.ADMIN) {
-            throw new IllegalArgumentException(
+            throw new AccessDeniedException(
                     "Only OWNER or ADMIN can perform this operation"
             );
         }
@@ -304,7 +307,7 @@ public class BusinessServiceImpl implements BusinessService {
         try {
             return BusinessRole.valueOf(role.toUpperCase());
         } catch (Exception exception) {
-            throw new IllegalArgumentException(
+            throw new BadRequestException(
                     "Invalid business role: " + role
             );
         }

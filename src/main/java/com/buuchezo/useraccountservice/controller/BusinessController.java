@@ -35,12 +35,16 @@ public class BusinessController {
                 .body(business);
     }
 
-    @GetMapping("/{businessId}")
+    @GetMapping("/{businessId:\\d+}")
     public ResponseEntity<BusinessDto> getBusiness(
-            @PathVariable Long businessId
+            @PathVariable Long businessId,
+            Authentication authentication
     ) {
         return ResponseEntity.ok(
-                businessService.getBusinessById(businessId)
+                businessService.getBusinessById(
+                        businessId,
+                        authentication.getName()
+                )
         );
     }
 
